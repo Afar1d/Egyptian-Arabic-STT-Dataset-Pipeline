@@ -70,7 +70,8 @@ This project was designed with a focus on:
 - Add support for multi-speaker voice synthesis  
 
 ---
-<p align="center" width="100%">
-<video src="Stt Data.mp4" width="80%" controls></video>
-</p>
+
+
+https://github.com/user-attachments/assets/020554b3-d369-4897-b1ed-e6e6cd078237
+
 
