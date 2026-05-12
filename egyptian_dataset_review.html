@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TTS Dataset Review</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:        #0d0f14;
+    --surface:   #151820;
+    --card:      #1c2030;
+    --border:    #2a2f42;
+    --accent:    #4f8ef7;
+    --accept:    #22c55e;
+    --reject:    #ef4444;
+    --pending:   #f59e0b;
+    --text:      #e8eaf0;
+    --muted:     #6b7280;
+    --mono:      'JetBrains Mono', monospace;
+    --arabic:    'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--arabic);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── NOISE TEXTURE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,15,20,0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .header-title {
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .logo-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+
+  .header-meta {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: flex; gap: 6px; align-items: center;
+  }
+
+  .stat-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid transparent;
+  }
+
+  .stat-pill.total   { background: rgba(79,142,247,0.1); border-color: rgba(79,142,247,0.3); color: var(--accent); }
+  .stat-pill.accept  { background: rgba(34,197,94,0.1);  border-color: rgba(34,197,94,0.3);  color: var(--accept); }
+  .stat-pill.reject  { background: rgba(239,68,68,0.1);  border-color: rgba(239,68,68,0.3);  color: var(--reject); }
+  .stat-pill.pending { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); color: var(--pending); }
+
+  /* ── SAVE BUTTON ── */
+  .save-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 20px;
+    background: var(--accent);
+    color: #fff;
+    border: none; border-radius: 8px;
+    font-family: var(--arabic);
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .save-btn:hover  { background: #3a7be8; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(79,142,247,0.4); }
+  .save-btn:active { transform: translateY(0); }
+  .save-btn.saved  { background: var(--accept); }
+
+  /* ── FILTER BAR ── */
+  .filter-bar {
+    display: flex; gap: 8px; padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky; top: 65px; z-index: 99;
+  }
+
+  .filter-btn {
+    padding: 6px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--arabic);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover          { border-color: var(--accent); color: var(--accent); }
+  .filter-btn.active         { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .filter-btn.active.accept  { background: var(--accept); border-color: var(--accept); }
+  .filter-btn.active.reject  { background: var(--reject); border-color: var(--reject); }
+  .filter-btn.active.pending { background: var(--pending); border-color: var(--pending); }
+
+  /* ── MAIN GRID ── */
+  .main {
+    padding: 24px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+    position: relative; z-index: 1;
+  }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 16px;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+
+  .card.accepted { border-color: var(--accept);  box-shadow: 0 0 0 1px rgba(34,197,94,0.2); }
+  .card.rejected { border-color: var(--reject);   box-shadow: 0 0 0 1px rgba(239,68,68,0.2); }
+
+  /* Card top strip */
+  .card-strip {
+    height: 3px;
+    background: var(--border);
+    transition: background 0.2s;
+  }
+  .card.accepted .card-strip { background: var(--accept); }
+  .card.rejected .card-strip { background: var(--reject); }
+
+  .card-body { padding: 18px 20px 14px; }
+
+  .card-id {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .card-id .badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .badge.accepted { background: rgba(34,197,94,0.15);  color: var(--accept); }
+  .badge.rejected { background: rgba(239,68,68,0.15);  color: var(--reject); }
+  .badge.pending  { background: rgba(245,158,11,0.15); color: var(--pending); }
+  .badge.success  { background: rgba(79,142,247,0.15); color: var(--accent); }
+  .badge.failed   { background: rgba(239,68,68,0.15);  color: var(--reject); }
+
+  .card-text {
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.7;
+    color: var(--text);
+    direction: ltr;
+    text-align: left;
+    margin-bottom: 14px;
+    min-height: 56px;
+  }
+
+  /* ── AUDIO PLAYER ── */
+  .audio-wrap {
+    margin-bottom: 14px;
+  }
+
+  .audio-wrap audio {
+    width: 100%;
+    height: 36px;
+    border-radius: 6px;
+    filter: invert(1) hue-rotate(190deg) brightness(0.8);
+  }
+
+  .no-audio {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px;
+    background: rgba(239,68,68,0.08);
+    border: 1px dashed rgba(239,68,68,0.3);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--reject);
+  }
+
+  /* ── ACTION BUTTONS ── */
+  .card-actions {
+    display: flex; gap: 8px;
+  }
+
+  .action-btn {
+    flex: 1;
+    padding: 9px 0;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-family: var(--arabic);
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+
+  .action-btn.accept-btn {
+    color: var(--accept);
+    border-color: rgba(34,197,94,0.3);
+  }
+  .action-btn.accept-btn:hover,
+  .action-btn.accept-btn.active {
+    background: rgba(34,197,94,0.15);
+    border-color: var(--accept);
+    box-shadow: 0 0 12px rgba(34,197,94,0.2);
+  }
+
+  .action-btn.reject-btn {
+    color: var(--reject);
+    border-color: rgba(239,68,68,0.3);
+  }
+  .action-btn.reject-btn:hover,
+  .action-btn.reject-btn.active {
+    background: rgba(239,68,68,0.15);
+    border-color: var(--reject);
+    box-shadow: 0 0 12px rgba(239,68,68,0.2);
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap {
+    padding: 0 32px 20px;
+    position: relative; z-index: 1;
+  }
+
+  .progress-label {
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .progress-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accept), var(--accent));
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty p { font-size: 15px; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 14px;
+    z-index: 9999;
+    transition: transform 0.3s ease;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--accept); color: var(--accept); }
+  .toast.error   { border-color: var(--reject); color: var(--reject); }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar       { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">
+    <div class="logo-dot"></div>
+    <h1>TTS Dataset Review</h1>
+  </div>
+  <div class="stats-bar">
+    <div class="stat-pill total">   <span>📦</span> <span id="stat-total">0</span>  </div>
+    <div class="stat-pill accept">  <span>✓</span>  <span id="stat-accept">0</span> </div>
+    <div class="stat-pill reject">  <span>✗</span>  <span id="stat-reject">0</span> </div>
+    <div class="stat-pill pending"> <span>⏳</span> <span id="stat-pending">0</span></div>
+  </div>
+  <button class="save-btn" id="save-btn" onclick="saveJSON()">
+    💾 Save Changes
+  </button>
+</header>
+
+<div class="filter-bar">
+  <button class="filter-btn active"        onclick="setFilter('all')"      id="f-all">All</button>
+  <button class="filter-btn pending"       onclick="setFilter('pending')"  id="f-pending">Pending</button>
+  <button class="filter-btn active accept" onclick="setFilter('accepted')" id="f-accepted" style="background:transparent;color:var(--muted)">Accepted</button>
+  <button class="filter-btn active reject" onclick="setFilter('rejected')" id="f-rejected" style="background:transparent;color:var(--muted)">Rejected</button>
+</div>
+
+<div class="main">
+  <div class="progress-wrap">
+    <div class="progress-label">
+      <span>Progress</span>
+      <span id="progress-text">0 / 0 reviewed</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
+  <div class="cards-grid" id="cards"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────────────
+const DATASET_PATH = "C:\\Users\\Ahmed M. Farid\\Desktop\\Olimi Task\\egyptian_dataset.json";
+let dataset = [{"id": 1, "text": "ايه رايك نروح السينما النهاردة الجو حر موت.", "audio_path": "audio_output\\001.mp3", "status": "success"}, {"id": 2, "text": "هو الجو هيفضل حر كده لحد امتي انا زهقت.", "audio_path": "audio_output\\002.mp3", "status": "success"}, {"id": 3, "text": "ياريتني ما كنت خرجت النهاردة الجو زحمة قوي.", "audio_path": "audio_output\\003.mp3", "status": "success"}, {"id": 4, "text": "ممكن تجيبلي كوباية مياه من فضلك انا عطشانة.", "audio_path": "audio_output\\004.mp3", "status": "success"}, {"id": 5, "text": "انا تعبانة وعايزة انام بقالي كتير مواصلة.", "audio_path": "audio_output\\005.mp3", "status": "success"}, {"id": 6, "text": "يا لهوي الفستان ده شكله تحفة عليكي لازم تشتريه.", "audio_path": "audio_output\\006.mp3", "status": "success"}, {"id": 7, "text": "يلا بينا ننزل نتمشي شوية علي الكورنيش قبل المغرب.", "audio_path": "audio_output\\007.mp3", "status": "success"}, {"id": 8, "text": "متعرفش مواعيد فتح المتحف ايه عشان عايز ازوره.", "audio_path": "audio_output\\008.mp3", "status": "success"}, {"id": 9, "text": "انا زهقت من الاكل بره كل يوم عايزين نعمل اكل بيتي.", "audio_path": "audio_output\\009.mp3", "status": "success"}, {"id": 10, "text": "لو سمحت متركنش هنا العربية عشان الطريق ضيق.", "audio_path": "audio_output\\010.mp3", "status": "success"}, {"id": 11, "text": "النهاردة الجو تحفة والشمس طالعة تفتح النفس للخروج.", "audio_path": "audio_output\\011.mp3", "status": "success"}, {"id": 12, "text": "انا فاكرة اننا اتفقنا نشوف بعض الاسبوع الجاي يوم التلات.", "audio_path": "audio_output\\012.mp3", "status": "success"}, {"id": 13, "text": "ايه رايك نروح السينما النهاردة الجو حر موت. هو الجو هيفضل حر كده لحد امتي انا زهقت. ياريتني ما كنت خرجت النهاردة الجو زحمة قوي. ممكن تجيبلي كوباية مياه من فضلك انا عطشانة. انا تعبانة وعايزة انام بقالي كتير مواصلة. يا لهوي الفستان ده شكله تحفة عليكي لازم تشتريه. يلا بينا ننزل نتمشي شوية علي الكورنيش قبل المغرب. متعرفش مواعيد فتح المتحف ايه عشان عايز ازوره. انا زهقت من الاكل بره كل يوم عايزين نعمل اكل بيتي. لو سمحت متركنش هنا العربية عشان الطريق ضيق. النهاردة الجو تحفة والشمس طالعة تفتح النفس للخروج. انا فاكرة اننا اتفقنا نشوف بعض الاسبوع الجاي يوم التلات.", "audio_path": "audio_output\\013.mp3", "status": "success"}];
+let currentFilter = 'all';
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+function init() {
+  render();
+  updateStats();
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function render() {
+  const grid = document.getElementById('cards');
+  const items = dataset.filter(item => {
+    if (currentFilter === 'all')      return true;
+    if (currentFilter === 'pending')  return !item.review;
+    if (currentFilter === 'accepted') return item.review === 'accepted';
+    if (currentFilter === 'rejected') return item.review === 'rejected';
+  });
+
+  if (items.length === 0) {
+    grid.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><p>No items in this category</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = items.map((item, i) => {
+    const review  = item.review || '';
+    const genStatus = item.status || 'pending';
+    const audioAvail = item.audio_path && genStatus === 'success';
+
+    // Resolve audio path relative — strip directory prefix for browser
+    const audioSrc = item.audio_path ? item.audio_path.replace(/\\/g, '/') : '';
+
+    return `
+    <div class="card ${review}" id="card-${item.id}" style="animation-delay:${i * 0.04}s">
+      <div class="card-strip"></div>
+      <div class="card-body">
+        <div class="card-id">
+          <span>#${String(item.id).padStart(3,'0')}</span>
+          <span class="badge ${review || 'pending'}">${
+            review === 'accepted' ? 'Accepted' :
+            review === 'rejected' ? 'Rejected' : 'Pending'
+          }</span>
+          <span class="badge ${genStatus}">${genStatus === 'success' ? 'Audio ✓' : genStatus}</span>
+        </div>
+        <div class="card-text">${item.text}</div>
+        <div class="audio-wrap">
+          ${audioAvail
+            ? `<audio controls src="${audioSrc}" preload="none"></audio>`
+            : `<div class="no-audio">⚠ No audio available</div>`
+          }
+        </div>
+        <div class="card-actions">
+          <button class="action-btn accept-btn ${review==='accepted'?'active':''}"
+            onclick="setReview(${item.id}, 'accepted')">✓ Accept</button>
+          <button class="action-btn reject-btn ${review==='rejected'?'active':''}"
+            onclick="setReview(${item.id}, 'rejected')">✗ Reject</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── AUTO-SAVE (debounced) ────────────────────────────────────────────────────
+let saveTimer = null;
+const saveIndicator = () => {
+  const btn = document.getElementById('save-btn');
+  btn.textContent = '✓ Auto-saved';
+  btn.classList.add('saved');
+  setTimeout(() => {
+    btn.textContent = '💾 Save Changes';
+    btn.classList.remove('saved');
+  }, 1500);
+};
+
+async function autoSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      const res = await fetch('http://localhost:51675/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataset)
+      });
+      if (!res.ok) throw new Error(await res.text());
+      saveIndicator();
+    } catch (e) {
+      showToast('✗ Auto-save failed: ' + e.message, 'error');
+    }
+  }, 300);
+}
+
+// ── REVIEW ────────────────────────────────────────────────────────────────────
+function setReview(id, decision) {
+  const item = dataset.find(d => d.id === id);
+  if (!item) return;
+  // Toggle off if same
+  item.review = (item.review === decision) ? null : decision;
+  render();
+  updateStats();
+  autoSave();   // ← save instantly on every decision
+}
+
+// ── FILTER ────────────────────────────────────────────────────────────────────
+function setFilter(filter) {
+  currentFilter = filter;
+  ['all','pending','accepted','rejected'].forEach(f => {
+    const btn = document.getElementById('f-' + f);
+    btn.classList.remove('active');
+    btn.style.background = '';
+    btn.style.color = 'var(--muted)';
+  });
+  const active = document.getElementById('f-' + filter);
+  active.classList.add('active');
+  active.style.color = '';
+  render();
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+function updateStats() {
+  const total    = dataset.length;
+  const accepted = dataset.filter(d => d.review === 'accepted').length;
+  const rejected = dataset.filter(d => d.review === 'rejected').length;
+  const pending  = dataset.filter(d => !d.review).length;
+  const reviewed = accepted + rejected;
+
+  document.getElementById('stat-total').textContent   = total;
+  document.getElementById('stat-accept').textContent  = accepted;
+  document.getElementById('stat-reject').textContent  = rejected;
+  document.getElementById('stat-pending').textContent = pending;
+  document.getElementById('progress-text').textContent = `${reviewed} / ${total} reviewed`;
+  document.getElementById('progress-fill').style.width = total ? `${(reviewed/total)*100}%` : '0%';
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────────────────
+async function saveJSON() {
+  const btn = document.getElementById('save-btn');
+  btn.textContent = '⏳ Saving...';
+  btn.disabled = true;
+
+  try {
+    // Write updated JSON back to disk via fetch to the tiny save server
+    const res = await fetch('http://localhost:51675/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dataset)
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+
+    btn.textContent = '✓ Saved';
+    btn.classList.add('saved');
+    showToast('✓ Changes saved successfully', 'success');
+    setTimeout(() => {
+      btn.textContent = '💾 Save Changes';
+      btn.classList.remove('saved');
+      btn.disabled = false;
+    }, 2000);
+  } catch (e) {
+    showToast('✗ Save failed: ' + e.message, 'error');
+    btn.textContent = '💾 Save Changes';
+    btn.disabled = false;
+  }
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ── KEYBOARD SHORTCUTS ────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    saveJSON();
+  }
+});
+
+init();
+</script>
+</body>
+</html>
